@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>משחק התאמת חיות</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 10px;
+            touch-action: manipulation;
+        }
+        #login-container, #game-container, #summary-container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 500px;
+        }
+        #options {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .animal-option {
+            font-size: 48px;
+            cursor: pointer;
+            user-select: none;
+            margin: 10px;
+            touch-action: manipulation;
+        }
+        #dropzone {
+            width: 100px;
+            height: 100px;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px auto;
+            font-size: 48px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #feedback {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            font-size: 24px;
+            text-align: center;
+            display: none;
+        }
+        #animal-name {
+            font-size: 36px;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 16px;
+        }
+        #attempts {
+            font-size: 18px;
+            margin-top: 10px;
+        }
+        #summary-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        #summary-list li {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="login-container">
+        <h1>ברוכים הבאים למשחק התאמת חיות</h1>
+        <input type="text" id="username" placeholder="הכנס את שמך">
+        <button onclick="startGame()">התחל משחק</button>
+    </div>
+
+    <div id="game-container" style="display: none;">
+        <h1>משחק התאמת חיות</h1>
+        <h2>שלום, <span id="player-name"></span>!</h2>
+        <h3>התאם את החיה: <span id="animal-name"></span></h3>
+        <div id="options"></div>
+        <div id="dropzone"></div>
+        <button onclick="checkAnswer()">בדוק תשובה</button>
+        <p>ניקוד: <span id="score">0</span></p>
+        <p id="attempts">ניסיון: <span id="current-attempt">1</span>/10</p>
+    </div>
+
+    <div id="feedback"></div>
+
+    <div id="summary-container" style="display: none;">
+        <h2>סיכום המשחק</h2>
+        <p>ענית נכון על <span id="correct-answers"></span> שאלות מתוך 10</p>
+        <ul id="summary-list"></ul>
+        <button onclick="restartGame()">שחק שוב</button>
+    </div>
+
+    <script>
+        const animals = [
+            { name: "כֶּלֶב", emoji: "🐶" },
+            { name: "חָתוּל", emoji: "🐱" },
+            { name: "דָּג", emoji: "🐠" },
+            { name: "אַרְיֵה", emoji: "🦁" },
+            { name: "פִּיל", emoji: "🐘" },
+            { name: "קוֹף", emoji: "🐵" },
+            { name: "אַרְנָב", emoji: "🐰" },
+            { name: "תַּרְנְגוֹל", emoji: "🐔" },
+            { name: "גִ'ירָפָה", emoji: "🦒" },
+            { name: "פַּרְפַּר", emoji: "🦋" },
+            { name: "דְּרָקוֹן", emoji: "🐉" },
+            { name: "נָחָשׁ", emoji: "🐍" },
+            { name: "דּוֹלְפִין", emoji: "🐬" },
+            { name: "פִּינְגְוִין", emoji: "🐧" },
+            { name: "סוּס", emoji: "🐴" },
+            { name: "חֲזִיר", emoji: "🐷" }
+        ];
+
+        let currentAnimal;
+        let score = 0;
+        let attempts = 0;
+        let answerHistory = [];
+
+        function startGame() {
+            const username = document.getElementById('username').value;
+            if (username.trim() === '') {
+                alert('אנא הכנס את שמך');
+                return;
+            }
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
+            document.getElementById('player-name').textContent = username;
+            resetGame();
+            nextQuestion();
+        }
+
+        function resetGame() {
+            score = 0;
+            attempts = 0;
+            answerHistory = [];
+            document.getElementById('score').textContent = score;
+            document.getElementById('current-attempt').textContent = attempts + 1;
+        }
+
+        function nextQuestion() {
+            if (attempts >= 10) {
+                endGame();
+                return;
+            }
+
+            currentAnimal = animals[Math.floor(Math.random() * animals.length)];
+            document.getElementById('animal-name').textContent = currentAnimal.name;
+            
+            const options = document.getElementById('options');
+            options.innerHTML = '';
+            
+            let shuffledAnimals = [...animals].sort(() => 0.5 - Math.random()).slice(0, 6);
+            if (!shuffledAnimals.includes(currentAnimal)) {
+                shuffledAnimals[Math.floor(Math.random() * 6)] = currentAnimal;
+            }
+            
+            shuffledAnimals.forEach(animal => {
+                const div = document.createElement('div');
+                div.className = 'animal-option';
+                div.textContent = animal.emoji;
+                div.onclick = function() { selectAnimal(animal.emoji); };
+                options.appendChild(div);
+            });
+
+            document.getElementById('dropzone').innerHTML = '';
+            document.getElementById('feedback').style.display = 'none';
+        }
+
+        function selectAnimal(emoji) {
+            document.getElementById('dropzone').textContent = emoji;
+        }
+
+        function checkAnswer() {
+            const dropzone = document.getElementById('dropzone');
+            const feedback = document.getElementById('feedback');
+            
+            if (!dropzone.textContent) {
+                alert('אנא בחר חיה לפני בדיקת התשובה');
+                return;
+            }
+            
+            attempts++;
+            document.getElementById('current-attempt').textContent = attempts;
+
+            let isCorrect = dropzone.textContent === currentAnimal.emoji;
+            let resultIcon = isCorrect ? '✅' : '❌';
+            let resultText = isCorrect ? 'נכון! כל הכבוד!' : 'לא נכון. התשובה הנכונה היא: ' + currentAnimal.emoji;
+
+            feedback.innerHTML = `
+                <div style="font-size: 48px; margin-bottom: 10px;">${resultIcon}</div>
+                <div>${resultText}</div>
+            `;
+            feedback.style.display = 'block';
+
+            if (isCorrect) {
+                score++;
+                document.getElementById('score').textContent = score;
+            }
+
+            answerHistory.push({
+                animal: currentAnimal.name,
+                correct: isCorrect,
+                userAnswer: dropzone.textContent,
+                correctAnswer: currentAnimal.emoji
+            });
+
+            setTimeout(() => {
+                feedback.style.display = 'none';
+                nextQuestion();
+            }, 1500);
+        }
+
+        function endGame() {
+            document.getElementById('game-container').style.display = 'none';
+            document.getElementById('summary-container').style.display = 'block';
+            document.getElementById('correct-answers').textContent = score;
+
+            const summaryList = document.getElementById('summary-list');
+            summaryList.innerHTML = '';
+            answerHistory.forEach((answer, index) => {
+                const li = document.createElement('li');
+                const icon = answer.correct ? '✅' : '❌';
+                li.innerHTML = `${icon} שאלה ${index + 1}: ${answer.animal} - תשובתך: ${answer.userAnswer}, תשובה נכונה: ${answer.correctAnswer}`;
+                summaryList.appendChild(li);
+            });
+        }
+
+        function restartGame() {
+            document.getElementById('summary-container').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
+            resetGame();
+            nextQuestion();
+        }
+    </script>
+</body>
+</html>
